@@ -1,8 +1,9 @@
 %% Chladni Plate Finite Difference Method Solver
 %Author: Nathan Biesterfeld
+%Lives at https://github.com/nabi0373/chladni_plate
 
 %% Script Parameters (Change these)
-compute_chladni_solution = true; % set to true if you want to run the FDM solver
+compute_chladni_solution = false; % set to true if you want to run the FDM solver
                                   % FDM solver parameters are marked
                                   % with %%%%%%%%%%FDM_PARAM%%%%%%%%%%
 save_to_csv = false; % save results of FDM solver in a csv file specified by csv_filename.
@@ -16,7 +17,9 @@ load_from_csv = false; % loads the solution matrix in csv_filename into sol_matr
                        % OR sol_matrix must be cached from previous
                        % running of the script.
 
-run_chladni_animation = false; %runs the animation with the data in sol_matrix
+                                 
+run_chladni_animation_3d = false; %runs the animation with the data in sol_matrix
+run_chladni_animation_2d = true;
 animation_pause = 0.00005; % time (in seconds) between frames of animation
 
 plot_maximum_amplitudes = true; %plots maximum amplitudes of u(r,t) vs. time. 
@@ -25,7 +28,7 @@ plot_maximum_amplitudes = true; %plots maximum amplitudes of u(r,t) vs. time.
                                  % frequencies of the plate
                                  
 plot_with_analytic_solution = false;
-bessel_mode = 5; %The mode of analytic solution to plot numeric solution with
+bessel_mode = 4; %The mode of analytic solution to plot numeric solution with
 num_cycles_driver = 50; % The number of cycles of driver to plot the numeric solution after
                        % Must be less than num_cycles (the number of cycles
                        % in sol_matrix)
@@ -61,22 +64,30 @@ beta = rho*h/D;
     %     6              100              7000                   4792
 %}
 
-rsteps = 50; %%%%%%%%%%FDM_PARAM%%%%%%%%%%
+rsteps = 100; %%%%%%%%%%FDM_PARAM%%%%%%%%%%
 h = (Ro-Ri)/rsteps;
 r = Ri:(Ro-Ri)/rsteps:Ro; 
 
-f = 3087; %driving frequency %%%%%%%%%%FDM_PARAM%%%%%%%%%%
+f = 1941; %driving frequency %%%%%%%%%%FDM_PARAM%%%%%%%%%%
 Tcycle = 1/f;
 ohm = 2*pi*f; %angular driving frequency
 
 num_cycles = 100; %%%%%%%%%%FDM_PARAM%%%%%%%%%%
-num_steps_per_cycle = 2000; %%%%%%%%%%FDM_PARAM%%%%%%%%%%
+num_steps_per_cycle = 7000; %%%%%%%%%%FDM_PARAM%%%%%%%%%%
 tsteps = num_cycles*num_steps_per_cycle;
 tstart = 0;
 tend = Tcycle*num_cycles;
 
 k = (tend-tstart)/tsteps;
 t = tstart:k:tend;
+
+uinit = zeros(1,length(r)); %%%%%%%%%%FDM_PARAM%%%%%%%%%%
+uinitinit = zeros(1,length(r)); %%%%%%%%%%FDM_PARAM%%%%%%%%%%
+
+high_precision = 0; %%%%%%%%%%FDM_PARAM%%%%%%%%%%
+                    % Set equal to zero for low precision (faster) and equal to one for high precision (slower) 
+                    % Should be set to zero unless you have some powerful hardware to crank up num_steps_per_cycle 
+                    % and force stability               
 
 %Driven Boundary Conditions (These can be set to anything if you want to try other boundary conditions)
 start_bc0_bool = true;
@@ -100,14 +111,6 @@ start_bc4 = zeros(1,size(t,2));
 end_bc4_bool = false;
 end_bc4 = zeros(1,size(t,2));
 
-uinit = zeros(1,length(r)); %%%%%%%%%%FDM_PARAM%%%%%%%%%%
-uinitinit = zeros(1,length(r)); %%%%%%%%%%FDM_PARAM%%%%%%%%%%
-
-high_precision = 0; %%%%%%%%%%FDM_PARAM%%%%%%%%%%
-                    % Set equal to zero for low precision (faster) and equal to one for high precision (slower) 
-                    % Should be set to zero unless you have some powerful hardware to crank up num_steps_per_cycle 
-                    % and force stability
-                    
 if compute_chladni_solution
     sol_matrix = computeChladniSolution(r,h,t,k,high_precision,uinit,uinitinit,beta,start_bc0_bool,start_bc0,start_bc1_bool,start_bc1,start_bc2_bool,start_bc2,start_bc3_bool,start_bc3,start_bc4_bool,start_bc4, ...
                                         end_bc0_bool,end_bc0,end_bc1_bool,end_bc1,end_bc2_bool,end_bc2,end_bc3_bool,end_bc3,end_bc4_bool,end_bc4,save_to_csv,csv_filename,load_from_csv);
@@ -129,7 +132,7 @@ if plot_with_analytic_solution
 end
 
 %% Solution Animation
-if run_chladni_animation
+if run_chladni_animation_3d
     theta_steps = 100;
     theta = 0:2*pi/theta_steps:2*pi;
     [rad,theta] = meshgrid(r,theta); 
@@ -169,6 +172,19 @@ if run_chladni_animation
     end  
 end
 
+if run_chladni_animation_2d
+    figure(4);
+    p = plot(r,sol_matrix(1,:));
+    ab_sol_matrix = abs(sol_matrix);
+    axis([Ri, Ro, -max(ab_sol_matrix(:)), max(ab_sol_matrix(:))]);
+    xlabel('Radial Distance from Center of Plate (m)');
+    ylabel('Transverse Displacement');
+    
+    for i = 1:length(t)
+        p.YData = sol_matrix(i,:);
+        pause(animation_pause);
+    end
+end
 
 %% Function for plotting maximum amplitude of u(r,t) as a function of time t (wave packets when not at resonance)
 function plotMaxAmplitude(sol_matrix,t)
